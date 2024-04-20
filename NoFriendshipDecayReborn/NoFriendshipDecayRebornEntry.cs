@@ -1,28 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Netcode;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
-using StardewValley.Menus;
+using StardewModdingAPI.Utilities;
 using StardewValley;
 
 namespace NoFriendshipDecayReborn
 {
-    internal class NoFriendshipDecayRebornEntry : Mod
+    public class NoFriendshipDecayRebornEntry : Mod
     {
         /// <summary>
         /// Used to track who the player has friendships with and what their friendship values are
         /// </summary>
-        private readonly Dictionary<string, int> _friendshipData = new();
+        private readonly PerScreen<Dictionary<string, int>> _friendshipData = new();
 
         /// <summary>
         /// Entrance to the No Friendship Decay - Reborn
         /// </summary>
         public override void Entry(IModHelper helper)
         {
+            _friendshipData.Value = new Dictionary<string, int>();
+
             helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
         }
@@ -30,15 +29,15 @@ namespace NoFriendshipDecayReborn
         /// <summary>
         /// When a save is loaded, we clear the existing friendship data because it could be coming from another save
         /// </summary>
-        public void OnSaveLoaded(object sender, SaveLoadedEventArgs args)
+        private void OnSaveLoaded(object sender, SaveLoadedEventArgs args)
         {
-            _friendshipData.Clear();
+            _friendshipData.Value.Clear();
         }
-        
+
         /// <summary>
         /// Every second, reset the friendship decay and store the values
         /// </summary>
-        public void OnUpdateTicked(object sender, UpdateTickedEventArgs args)
+        private void OnUpdateTicked(object sender, UpdateTickedEventArgs args)
         {
             if (args.IsOneSecond && Context.IsWorldReady)
             {
@@ -49,7 +48,7 @@ namespace NoFriendshipDecayReborn
         /// <summary>
         /// Resets friendship losses and then updates what is tracked
         /// </summary>
-        protected void ResetFriendshipDecay()
+        private void ResetFriendshipDecay()
         {
             // Reset friendship decreases back to what they were originally
             ResetFriendships();
@@ -63,10 +62,11 @@ namespace NoFriendshipDecayReborn
         /// </summary>
         private void UpdateFriendshipData()
         {
-            _friendshipData.Clear();
+            _friendshipData.Value.Clear();
+
             foreach ((string name, NetRef<Friendship> friendship) in Game1.player.friendshipData.FieldDict)
             {
-                _friendshipData[name] = friendship.Value.Points;
+                _friendshipData.Value[name] = friendship.Value.Points;
             }
         }
 
@@ -75,12 +75,13 @@ namespace NoFriendshipDecayReborn
         /// </summary>
         private void ResetFriendships()
         {
-            if (_friendshipData.Any())
+            if (_friendshipData.Value.Any())
             {
                 foreach (string key in Game1.player.friendshipData.Keys)
                 {
                     Friendship friendship = Game1.player.friendshipData[key];
-                    if (_friendshipData.TryGetValue(key, out int oldPoints) && oldPoints > friendship.Points)
+
+                    if (_friendshipData.Value.TryGetValue(key, out int oldPoints) && oldPoints > friendship.Points)
                     {
                         friendship.Points = oldPoints;
                     }
